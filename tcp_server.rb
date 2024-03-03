@@ -2,15 +2,14 @@ require 'socket'
 
 module Server
   class RequestHandler
-    CRLF = "\r\n"
-
     attr_reader :connection
+
     def initialize(connection)
       @connection = connection
     end
 
-    def handle(_data)
-        'Hello world'
+    def handle(data)
+      "Request info: #{data}"
     end
   end
 
@@ -19,7 +18,9 @@ module Server
     CONCURRENCY = 4
 
     def initialize(port = 21)
-      @control_socket = TCPServer.new(port)
+      @server = Socket.new(:INET, :STREAM)
+      @server.bind(Socket.pack_sockaddr_in(port, '0.0.0.0'))
+      @server.listen(128)
       trap(:INT) { exit }
     end
 
@@ -62,14 +63,14 @@ module Server
     def spawn_child
       fork do
         loop do
-          @client = @control_socket.accept
-          respond "Request accepted"
+          @client, _ = @server.accept
+          respond "Request accepted"            
+          
+          handler = Server::RequestHandler.new(@client)
 
-          handler = Server::RequestHandler.new(self)
-
-          loop do
+          loop do         
             request = gets
-
+            
             if request
               respond handler.handle(request)
             else
@@ -83,6 +84,5 @@ module Server
   end
 end
 
-
-server = Server::Preforking.new(4481)
+server = Server::Preforking.new(4482)
 server.run
